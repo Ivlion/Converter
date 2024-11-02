@@ -1,6 +1,8 @@
 from PyQt6 import QtCore, QtGui, QtWidgets
 from PyQt6.QtWidgets import QApplication, QMainWindow, QFileDialog
+from PyQt6.QtGui import QPixmap
 import sys
+from PIL import Image
 
 if hasattr(QtCore.Qt, 'AA_EnableHighDpiScaling'):
     QtWidgets.QApplication.setAttribute(QtCore.Qt.AA_EnableHighDpiScaling, True)
@@ -8,6 +10,7 @@ if hasattr(QtCore.Qt, 'AA_EnableHighDpiScaling'):
 if hasattr(QtCore.Qt, 'AA_UseHighDpiPixmaps'):
     QtWidgets.QApplication.setAttribute(QtCore.Qt.AA_UseHighDpiPixmaps, True)
 
+X, Y = 325, 310
 
 class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
@@ -34,13 +37,35 @@ class Ui_MainWindow(object):
         self.code = QtWidgets.QComboBox(parent=self.gridLayoutWidget)
         self.code.setObjectName("code")
         self.gridLayout.addWidget(self.code, 1, 1, 1, 1)
+
+        self.image = QtWidgets.QLabel(parent=self.centralwidget)
+        self.image.setObjectName("image")
+        self.image.move(5, 5)
+        self.image.raise_()
+        self.image.hide()
+
         self.addfile = QtWidgets.QPushButton(parent=self.centralwidget)
-        self.addfile.setGeometry(QtCore.QRect(10, 10, 291, 181))
+        self.addfile.setGeometry(QtCore.QRect(10, 10, 150, 180))
         font = QtGui.QFont()
         font.setPointSize(30)
         self.addfile.setFont(font)
-        self.addfile.setObjectName("addfile")
+        self.addfile.setObjectName("adddir")
         self.addfile.setStyleSheet("background-color: transparent;")
+
+        self.adddir = QtWidgets.QPushButton(parent=self.centralwidget)
+        self.adddir.setGeometry(QtCore.QRect(165, 10, 150, 180))
+        font = QtGui.QFont()
+        font.setPointSize(30)
+        self.adddir.setFont(font)
+        self.adddir.setObjectName("addfile")
+        self.adddir.setStyleSheet("background-color: transparent;")
+
+        self.another_file = QtWidgets.QPushButton(parent=self.centralwidget)
+        self.another_file.setGeometry(QtCore.QRect(5, 180, 300, 30))
+        self.another_file.setObjectName("defolt")
+        self.another_file.setStyleSheet("background-color: transparent;")
+        self.another_file.hide()
+
         self.conv = QtWidgets.QPushButton(parent=self.centralwidget)
         self.conv.setGeometry(QtCore.QRect(210, 260, 101, 31))
         self.conv.setObjectName("conv")
@@ -62,7 +87,10 @@ class Ui_MainWindow(object):
         self.label.setText(_translate("MainWindow", "Конвертировать в:"))
         self.label_2.setText(_translate("MainWindow", "Кодировка:"))
         self.addfile.setText(_translate("MainWindow", "+Файл"))
+        self.adddir.setText(_translate("MainWindow", "+Папка"))
+        self.another_file.setText(_translate("MainWindow", "Выбрать другой файл"))
         self.conv.setText(_translate("MainWindow", "Конвертировать"))
+
 
 
 class converter(Ui_MainWindow, QMainWindow):
@@ -70,13 +98,29 @@ class converter(Ui_MainWindow, QMainWindow):
         super().__init__()
         self.setupUi(self)
         self.setAcceptDrops(True)
+        self.addformat()
+        self.code.addItem('utf-8')
         self.addfile.clicked.connect(self.run)
+        self.another_file.clicked.connect(self.reset)
         self.files = []
+
+    def addformat(self):
+        self.format.addItems([
+            "BMP", "ESP", "GIF", "IM",
+            "JPEG", "JPG", "MSP", "PCX",
+            "PNG", "PPM", "TIFF", "WEBP",
+            "ICO", "PSD", "TIF", "FAX"])
 
     def run(self):
         fname = QFileDialog.getOpenFileName(
-            self, 'Выбрать картинку', '',
-            '*.jpg;;*.png;;Все файлы (*)')[0]
+            self, 'Выбрать файл', '',
+            '*.jpg;;*.png;;*.bmp;;*.esp;;*.gifim;;*.jpeg;;*.msp;;*.pcx;'
+            ';*.ppm;;*.tiff;;*.webp;;*.ico;;*.psd;;*.tif;;*.fax;;Все файлы (*)')[0]
+        if fname != '':
+            self.files.append(fname)
+            self.first()
+            self.preview()
+            print(self.files)
 
     def dragEnterEvent(self, event):
         if event.mimeData().hasUrls():
@@ -88,14 +132,43 @@ class converter(Ui_MainWindow, QMainWindow):
         files = [u.toLocalFile() for u in event.mimeData().urls()]
         for f in files:
             if not self.files:
-                self.listw = QtWidgets.QListWidget()
-                self.listw.move(5, 5)
-                self.listw.resize(315, 200)
-                self.addfile.setText('')
+                self.first()
             if f not in self.files:
                 self.files.append(f)
                 self.listw.addItem(f)
             print(f)
+
+    def first(self):
+        font = QtGui.QFont()
+        font.setPointSize(10)
+        self.addfile.hide()
+        self.adddir.hide()
+        self.another_file.show()
+        self.listw = QtWidgets.QListWidget()
+        self.listw.move(5, 5)
+        self.listw.resize(315, 200)
+        self.listw.addItem(self.files[-1])
+
+    def reset(self):
+        self.files = []
+        self.image.hide()
+        self.addfile.show()
+        self.adddir.show()
+        self.another_file.hide()
+
+    def preview(self):
+        self.image.show()
+        try:
+            self.pixmap = QPixmap(self.files[0])
+            q = str(self.pixmap.size()).split("(")[1][:-1].split(", ")
+            if int(q[0]) < int(q[1]):
+                self.pixmap = self.pixmap.scaledToHeight(300)
+            else:
+                self.pixmap = self.pixmap.scaledToWidth(175)
+            self.image.resize(self.pixmap.size())
+            self.image.setPixmap(self.pixmap)
+        except Exception:
+            pass
 
 
 
