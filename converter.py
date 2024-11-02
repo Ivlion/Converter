@@ -132,22 +132,17 @@ class converter(Ui_MainWindow, QMainWindow):
         files = [u.toLocalFile() for u in event.mimeData().urls()]
         for f in files:
             if not self.files:
-                self.first()
-            if f not in self.files:
                 self.files.append(f)
-                self.listw.addItem(f)
+                self.first()
+            elif f not in self.files:
+                self.files.append(f)
             print(f)
 
     def first(self):
-        font = QtGui.QFont()
-        font.setPointSize(10)
         self.addfile.hide()
         self.adddir.hide()
         self.another_file.show()
-        self.listw = QtWidgets.QListWidget()
-        self.listw.move(5, 5)
-        self.listw.resize(315, 200)
-        self.listw.addItem(self.files[-1])
+        self.preview()
 
     def reset(self):
         self.files = []
@@ -161,7 +156,6 @@ class converter(Ui_MainWindow, QMainWindow):
         try:
             self.pixmap = QPixmap(self.files[0])
             q = str(self.pixmap.size()).split("(")[1][:-1].split(", ")
-            print(q)
             if int(q[1]) > 175:
                 self.pixmap = self.pixmap.scaledToHeight(175)
                 q = str(self.pixmap.size()).split("(")[1][:-1].split(", ")
