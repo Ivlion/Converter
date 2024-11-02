@@ -161,10 +161,12 @@ class converter(Ui_MainWindow, QMainWindow):
         try:
             self.pixmap = QPixmap(self.files[0])
             q = str(self.pixmap.size()).split("(")[1][:-1].split(", ")
-            if int(q[0]) < int(q[1]):
-                self.pixmap = self.pixmap.scaledToHeight(300)
-            else:
-                self.pixmap = self.pixmap.scaledToWidth(175)
+            print(q)
+            if int(q[1]) > 175:
+                self.pixmap = self.pixmap.scaledToHeight(175)
+                q = str(self.pixmap.size()).split("(")[1][:-1].split(", ")
+            if int(q[0]) > 300:
+                self.pixmap = self.pixmap.scaledToWidth(300)
             self.image.resize(self.pixmap.size())
             self.image.setPixmap(self.pixmap)
         except Exception:
