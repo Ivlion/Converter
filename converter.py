@@ -1,5 +1,5 @@
 from PyQt6 import QtCore, QtGui, QtWidgets
-from PyQt6.QtWidgets import QApplication, QMainWindow, QFileDialog, QLabel, QVBoxLayout, QWidget
+from PyQt6.QtWidgets import QApplication, QMainWindow, QFileDialog, QLabel, QVBoxLayout, QWidget, QLineEdit, QPushButton
 from PyQt6.QtGui import QPixmap
 import sys
 from PIL import Image
@@ -12,13 +12,12 @@ if hasattr(QtCore.Qt, 'AA_EnableHighDpiScaling'):
 if hasattr(QtCore.Qt, 'AA_UseHighDpiPixmaps'):
     QtWidgets.QApplication.setAttribute(QtCore.Qt.AA_UseHighDpiPixmaps, True)
 
-X, Y = 325, 310
 
 class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
         MainWindow.setObjectName("MainWindow")
         MainWindow.resize(325, 310)
-        MainWindow.setMinimumSize(QtCore.QSize(325, 300))
+        MainWindow.setFixedSize(325, 310)
         self.centralwidget = QtWidgets.QWidget(parent=MainWindow)
         self.centralwidget.setObjectName("centralwidget")
         self.gridLayoutWidget = QtWidgets.QWidget(parent=self.centralwidget)
@@ -117,6 +116,8 @@ class converter(Ui_MainWindow, QMainWindow):
         self.addfile.clicked.connect(self.file)
         self.another_file.clicked.connect(self.reset)
         self.add_folder.clicked.connect(self.folder)
+        self.conv.setEnabled(False)
+        self.conv.clicked.connect(self.convert)
 
     def addformat(self):
         self.format.addItems(self.extensions)
@@ -169,6 +170,7 @@ class converter(Ui_MainWindow, QMainWindow):
         self.add_folder.hide()
         self.another_file.show()
         self.preview()
+        self.conv.setEnabled(True)
 
     def reset(self):
         self.files = []
@@ -214,6 +216,51 @@ class converter(Ui_MainWindow, QMainWindow):
                     pass
             widget.setLayout(layout)
             self.scroll_area.setWidget(widget)
+
+    def convert(self):
+        self.open = Second_Window()
+        self.open.send_data.connect(self.dir)
+        self.open.show()
+        self.conv_im()
+
+    def conv_im(self):
+        pass
+
+    def dir(self, data):
+        print(data)
+
+class Second_Window(QWidget):
+    send_data = QtCore.pyqtSignal(str)
+    def __init__(self):
+        super().__init__()
+        self.initUI()
+
+    def initUI(self):
+        self.resize(325, 80)
+        self.setFixedSize(325, 80)
+        self.setWindowTitle('Сохранить в')
+        self.path = QLineEdit(self)
+        self.path.move(5, 10)
+        self.path.resize(315, 20)
+
+        self.choose = QPushButton('Выбрать', self)
+        self.choose.move(175, 35)
+        self.choose.resize(70, 20)
+        self.choose.clicked.connect(self.folder)
+
+        self.fname = None
+        self.ok = QPushButton('OK', self)
+        self.ok.move(250, 35)
+        self.ok.resize(70, 20)
+        self.ok.clicked.connect(self.send)
+
+    def send(self):
+        self.send_data.emit(self.fname)
+        self.close()
+
+    def folder(self):
+        self.fname = QFileDialog.getExistingDirectory(self, 'Выбрать папку')
+        self.path.setText(self.fname)
 
 
 
