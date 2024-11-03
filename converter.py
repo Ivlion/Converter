@@ -1,8 +1,10 @@
 from PyQt6 import QtCore, QtGui, QtWidgets
-from PyQt6.QtWidgets import QApplication, QMainWindow, QFileDialog
+from PyQt6.QtWidgets import QApplication, QMainWindow, QFileDialog, QLabel, QVBoxLayout, QWidget
 from PyQt6.QtGui import QPixmap
 import sys
 from PIL import Image
+import os
+
 
 if hasattr(QtCore.Qt, 'AA_EnableHighDpiScaling'):
     QtWidgets.QApplication.setAttribute(QtCore.Qt.AA_EnableHighDpiScaling, True)
@@ -52,19 +54,25 @@ class Ui_MainWindow(object):
         self.addfile.setObjectName("adddir")
         self.addfile.setStyleSheet("background-color: transparent;")
 
-        self.adddir = QtWidgets.QPushButton(parent=self.centralwidget)
-        self.adddir.setGeometry(QtCore.QRect(165, 10, 150, 180))
+        self.add_folder = QtWidgets.QPushButton(parent=self.centralwidget)
+        self.add_folder.setGeometry(QtCore.QRect(165, 10, 150, 180))
         font = QtGui.QFont()
         font.setPointSize(30)
-        self.adddir.setFont(font)
-        self.adddir.setObjectName("addfile")
-        self.adddir.setStyleSheet("background-color: transparent;")
+        self.add_folder.setFont(font)
+        self.add_folder.setObjectName("addfile")
+        self.add_folder.setStyleSheet("background-color: transparent;")
 
         self.another_file = QtWidgets.QPushButton(parent=self.centralwidget)
         self.another_file.setGeometry(QtCore.QRect(5, 180, 300, 30))
-        self.another_file.setObjectName("defolt")
+        self.another_file.setObjectName("another_file")
         self.another_file.setStyleSheet("background-color: transparent;")
         self.another_file.hide()
+
+        self.scroll_area = QtWidgets.QScrollArea(parent=self.centralwidget)
+        self.scroll_area.setGeometry(QtCore.QRect(5, 5, 320, 175))
+        self.scroll_area.setObjectName('scroll_area')
+        self.scroll_area.setStyleSheet("background-color: transparent;")
+        self.scroll_area.hide()
 
         self.conv = QtWidgets.QPushButton(parent=self.centralwidget)
         self.conv.setGeometry(QtCore.QRect(210, 260, 101, 31))
@@ -87,7 +95,7 @@ class Ui_MainWindow(object):
         self.label.setText(_translate("MainWindow", "Конвертировать в:"))
         self.label_2.setText(_translate("MainWindow", "Кодировка:"))
         self.addfile.setText(_translate("MainWindow", "+Файл"))
-        self.adddir.setText(_translate("MainWindow", "+Папка"))
+        self.add_folder.setText(_translate("MainWindow", "+Папка"))
         self.another_file.setText(_translate("MainWindow", "Выбрать другой файл"))
         self.conv.setText(_translate("MainWindow", "Конвертировать"))
 
@@ -98,20 +106,22 @@ class converter(Ui_MainWindow, QMainWindow):
         super().__init__()
         self.setupUi(self)
         self.setAcceptDrops(True)
-        self.addformat()
-        self.code.addItem('utf-8')
-        self.addfile.clicked.connect(self.run)
-        self.another_file.clicked.connect(self.reset)
         self.files = []
-
-    def addformat(self):
-        self.format.addItems([
+        self.extensions = [
             "BMP", "ESP", "GIF", "IM",
             "JPEG", "JPG", "MSP", "PCX",
             "PNG", "PPM", "TIFF", "WEBP",
-            "ICO", "PSD", "TIF", "FAX"])
+            "ICO", "PSD", "TIF", "FAX"]
+        self.addformat()
+        self.code.addItem('utf-8')
+        self.addfile.clicked.connect(self.file)
+        self.another_file.clicked.connect(self.reset)
+        self.add_folder.clicked.connect(self.folder)
 
-    def run(self):
+    def addformat(self):
+        self.format.addItems(self.extensions)
+
+    def file(self):
         fname = QFileDialog.getOpenFileName(
             self, 'Выбрать файл', '',
             '*.jpg;;*.png;;*.bmp;;*.esp;;*.gifim;;*.jpeg;;*.msp;;*.pcx;'
@@ -119,11 +129,20 @@ class converter(Ui_MainWindow, QMainWindow):
         if fname != '':
             self.files.append(fname)
             self.first()
-            self.preview()
             print(self.files)
 
+    def folder(self, fname=False):
+        if not fname:
+            fname = QFileDialog.getExistingDirectory(self, 'Выбрать папку')
+        for f in os.listdir(fname):
+            if f.split('.')[-1].upper() in self.extensions:
+                self.files.append(f'{fname}/{f}')
+        self.first()
+        print(self.files)
+
+
     def dragEnterEvent(self, event):
-        if event.mimeData().hasUrls():
+        if event.mimeData().hasUrls() and not self.add_folder.isHidden():
             event.accept()
         else:
             event.ignore()
@@ -131,16 +150,23 @@ class converter(Ui_MainWindow, QMainWindow):
     def dropEvent(self, event):
         files = [u.toLocalFile() for u in event.mimeData().urls()]
         for f in files:
-            if not self.files:
-                self.files.append(f)
-                self.first()
-            elif f not in self.files:
-                self.files.append(f)
-            print(f)
+            if os.path.isdir(f):
+                break
+        else:
+            for f in files:
+                if f not in self.files:
+                    self.files.append(f)
+                print(f)
+            self.first()
+            return None
+        if len(files) > 1:
+            pass
+        else:
+            self.folder(files[0])
 
     def first(self):
         self.addfile.hide()
-        self.adddir.hide()
+        self.add_folder.hide()
         self.another_file.show()
         self.preview()
 
@@ -148,23 +174,46 @@ class converter(Ui_MainWindow, QMainWindow):
         self.files = []
         self.image.hide()
         self.addfile.show()
-        self.adddir.show()
+        self.add_folder.show()
         self.another_file.hide()
+        self.scroll_area.hide()
 
     def preview(self):
-        self.image.show()
-        try:
-            self.pixmap = QPixmap(self.files[0])
-            q = str(self.pixmap.size()).split("(")[1][:-1].split(", ")
-            if int(q[1]) > 175:
-                self.pixmap = self.pixmap.scaledToHeight(175)
+        if len(self.files) == 1:
+            self.image.show()
+            try:
+                self.pixmap = QPixmap(self.files[0])
                 q = str(self.pixmap.size()).split("(")[1][:-1].split(", ")
-            if int(q[0]) > 300:
-                self.pixmap = self.pixmap.scaledToWidth(300)
-            self.image.resize(self.pixmap.size())
-            self.image.setPixmap(self.pixmap)
-        except Exception:
-            pass
+                if int(q[1]) > 175:
+                    self.pixmap = self.pixmap.scaledToHeight(175)
+                    q = str(self.pixmap.size()).split("(")[1][:-1].split(", ")
+                if int(q[0]) > 300:
+                    self.pixmap = self.pixmap.scaledToWidth(300)
+                self.image.resize(self.pixmap.size())
+                self.image.setPixmap(self.pixmap)
+            except Exception:
+                pass
+        else:
+            self.scroll_area.show()
+            layout = QVBoxLayout()
+            widget = QWidget()
+            for f in self.files:
+                try:
+                    image = QLabel()
+                    self.pixmap = QPixmap(f)
+                    q = str(self.pixmap.size()).split("(")[1][:-1].split(", ")
+                    if int(q[1]) > 175:
+                        self.pixmap = self.pixmap.scaledToHeight(175)
+                        q = str(self.pixmap.size()).split("(")[1][:-1].split(", ")
+                    if int(q[0]) > 300:
+                        self.pixmap = self.pixmap.scaledToWidth(300)
+                    image.resize(self.pixmap.size())
+                    image.setPixmap(self.pixmap)
+                    layout.addWidget(image)
+                except Exception:
+                    pass
+            widget.setLayout(layout)
+            self.scroll_area.setWidget(widget)
 
 
 
