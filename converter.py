@@ -1,5 +1,6 @@
 from PyQt6 import QtCore, QtGui, QtWidgets
-from PyQt6.QtWidgets import QApplication, QMainWindow, QFileDialog, QLabel, QVBoxLayout, QWidget, QLineEdit, QPushButton
+from PyQt6.QtWidgets import QApplication, QMainWindow, QFileDialog, QLabel, QVBoxLayout, QWidget, QLineEdit, \
+    QPushButton, QStatusBar
 from PyQt6.QtGui import QPixmap
 import sys
 from PIL import Image
@@ -50,7 +51,7 @@ class Ui_MainWindow(object):
         font = QtGui.QFont()
         font.setPointSize(30)
         self.addfile.setFont(font)
-        self.addfile.setObjectName("adddir")
+        self.addfile.setObjectName("addfile")
         self.addfile.setStyleSheet("background-color: transparent;")
 
         self.add_folder = QtWidgets.QPushButton(parent=self.centralwidget)
@@ -58,7 +59,7 @@ class Ui_MainWindow(object):
         font = QtGui.QFont()
         font.setPointSize(30)
         self.add_folder.setFont(font)
-        self.add_folder.setObjectName("addfile")
+        self.add_folder.setObjectName("add_folder")
         self.add_folder.setStyleSheet("background-color: transparent;")
 
         self.another_file = QtWidgets.QPushButton(parent=self.centralwidget)
@@ -110,7 +111,7 @@ class converter(Ui_MainWindow, QMainWindow):
             "BMP", "ESP", "GIF", "IM",
             "JPEG", "JPG", "MSP", "PCX",
             "PNG", "PPM", "TIFF", "WEBP",
-            "ICO", "PSD", "TIF", "FAX"]
+            "ICO", "PSD", "TIF", "FAX", "PDF"]
         self.addformat()
         self.code.addItem('utf-8')
         self.addfile.clicked.connect(self.file)
@@ -118,6 +119,7 @@ class converter(Ui_MainWindow, QMainWindow):
         self.add_folder.clicked.connect(self.folder)
         self.conv.setEnabled(False)
         self.conv.clicked.connect(self.convert)
+        self.final_dir = None
 
     def addformat(self):
         self.format.addItems(self.extensions)
@@ -126,7 +128,7 @@ class converter(Ui_MainWindow, QMainWindow):
         fname = QFileDialog.getOpenFileName(
             self, 'Выбрать файл', '',
             '*.jpg;;*.png;;*.bmp;;*.esp;;*.gifim;;*.jpeg;;*.msp;;*.pcx;'
-            ';*.ppm;;*.tiff;;*.webp;;*.ico;;*.psd;;*.tif;;*.fax;;Все файлы (*)')[0]
+            ';*.ppm;;*.tiff;;*.webp;;*.ico;;*.psd;;*.tif;;*.fax;;*.pdf;;Все файлы (*)')[0]
         if fname != '':
             self.files.append(fname)
             self.first()
@@ -221,15 +223,83 @@ class converter(Ui_MainWindow, QMainWindow):
         self.open = Second_Window()
         self.open.send_data.connect(self.dir)
         self.open.show()
-        self.conv_im()
 
     def conv_im(self):
-        pass
+        for el in self.files:
+            if el.split('.')[-1].lower() not in ["gif", "pdf", "tiff", "tif"]:
+                self.one_page(el)
+            else:
+                self.multy_page(el)
 
     def dir(self, data):
+        self.final_dir = data
         print(data)
+        self.conv_im()
 
-class Second_Window(QWidget):
+    def one_page(self, im):
+        form = self.format.currentText().lower()
+        print(form)
+        try:
+            image = Image.open(im)
+            i = 0
+            image.convert("RGB")
+            image.seek(i)
+            image.save(f"{self.new_name(im)}.{form}", format=form)
+            while True:
+                i += 1
+                try:
+                    image.seek(i)
+                    image.save(f"{self.new_name(im)}({i + 1}).{form}", format=form)
+                except EOFError:
+                    break
+            image.close()
+        except Exception:
+            pass
+
+    def multy_page(self, im):
+        try:
+            form = self.format.currentText().lower()
+            img = Image.open(im)
+            s = []
+            name = ""
+            for el in im.split("/")[:-1]:
+                name += el + "/"
+            i = 0
+            a = []
+            img.seek(i)
+            img.save(f"{name}asd.png", "png")
+            s.append(Image.open(f"{name}asd.png"))
+            a.append(f"{name}asd.png")
+            while True:
+                i += 1
+                try:
+                    img.seek(i)
+                    img.save(f"{name}asd{i}.png", "png")
+                    s.append(Image.open(f"{name}asd{i}.png"))
+                    a.append(f"{name}asd{i}.png")
+                except EOFError:
+                    break
+                except Exception:
+                    for el in a:
+                        os.unlink(el)
+                    return
+            s[0].save(
+                f"{self.new_name(im)}.{form}",
+                form,
+                save_all=True,
+                append_images=s[1:],
+            )
+            img.close()
+            for el in a:
+                os.unlink(el)
+        except Exception:
+            pass
+
+    def new_name(self, im):
+        return self.final_dir + im[im.rfind('/'): im.rfind('.')] + '_converted'
+
+
+class Second_Window(QMainWindow):
     send_data = QtCore.pyqtSignal(str)
     def __init__(self):
         super().__init__()
@@ -254,6 +324,8 @@ class Second_Window(QWidget):
         self.ok.resize(70, 20)
         self.ok.clicked.connect(self.send)
 
+        self.path.textChanged.connect(self.path_changed)
+
     def send(self):
         self.send_data.emit(self.fname)
         self.close()
@@ -262,6 +334,14 @@ class Second_Window(QWidget):
         self.fname = QFileDialog.getExistingDirectory(self, 'Выбрать папку')
         self.path.setText(self.fname)
 
+    def path_changed(self):
+        self.fname = self.path.text()
+        if os.path.exists(self.fname):
+            self.statusBar().setStyleSheet('color:green')
+            self.statusBar().showMessage('Указанный путь существует')
+        else:
+            self.statusBar().setStyleSheet('color:red')
+            self.statusBar().showMessage('Указанный путь не существует')
 
 
 if __name__ == '__main__':
