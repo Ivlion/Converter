@@ -1,3 +1,4 @@
+from PIL.features import version
 from PyQt6 import QtCore, QtGui, QtWidgets
 from PyQt6.QtWidgets import QApplication, QMainWindow, QFileDialog, QLabel, QVBoxLayout, QWidget, QLineEdit, \
     QPushButton, QStatusBar
@@ -5,6 +6,7 @@ from PyQt6.QtGui import QPixmap
 import sys
 from PIL import Image
 import os
+import csv
 
 
 if hasattr(QtCore.Qt, 'AA_EnableHighDpiScaling'):
@@ -101,10 +103,12 @@ class Ui_MainWindow(object):
 
 
 
-class converter(Ui_MainWindow, QMainWindow):
+class Converter(Ui_MainWindow, QMainWindow):
     def __init__(self):
         super().__init__()
         self.setupUi(self)
+        self.st_inf = {}
+        self.start()
         self.setAcceptDrops(True)
         self.files = []
         self.extensions = [
@@ -113,6 +117,7 @@ class converter(Ui_MainWindow, QMainWindow):
             "PNG", "PPM", "TIFF", "WEBP",
             "ICO", "PSD", "TIF", "FAX", "PDF"]
         self.addformat()
+        self.format.currentIndexChanged.connect(self.chng_format)
         self.code.addItem('utf-8')
         self.addfile.clicked.connect(self.file)
         self.another_file.clicked.connect(self.reset)
@@ -121,14 +126,34 @@ class converter(Ui_MainWindow, QMainWindow):
         self.conv.clicked.connect(self.convert)
         self.final_dir = None
 
+    def start(self):
+        with open('start.csv', encoding="utf8") as csvfile:
+            reader = list(csv.reader(csvfile, delimiter=',', quotechar='"'))
+            for i in range(len(reader[0])):
+                self.st_inf[reader[0][i]] = reader[1][i]
+            print(self.st_inf)
+
+    def closeEvent(self, e):
+        print(self.st_inf)
+        with open('start.csv', 'w', newline='', encoding="utf8") as f:
+            writer = csv.DictWriter(
+                f, fieldnames=self.st_inf.keys(),
+                delimiter=',', quoting=csv.QUOTE_NONNUMERIC, quotechar='"')
+            writer.writeheader()
+            writer.writerow(self.st_inf)
+
     def addformat(self):
         self.format.addItems(self.extensions)
+        self.format.setCurrentIndex(int(self.st_inf['last_format']))
+
+    def chng_format(self):
+        self.st_inf['last_format'] = str(self.format.currentIndex())
 
     def file(self):
         fname = QFileDialog.getOpenFileName(
             self, 'Выбрать файл', '',
-            '*.jpg;;*.png;;*.bmp;;*.esp;;*.gifim;;*.jpeg;;*.msp;;*.pcx;'
-            ';*.ppm;;*.tiff;;*.webp;;*.ico;;*.psd;;*.tif;;*.fax;;*.pdf;;Все файлы (*)')[0]
+            'Изображения (*.jpg;*.png;*.bmp;*.esp;*.gifim;*.jpeg;*.msp;*.pcx;'
+            '*.ppm;*.tiff;*.webp;*.ico;*.psd;*.tif;*.fax);;Все файлы (*)')[0]
         if fname != '':
             self.files.append(fname)
             self.first()
@@ -137,11 +162,12 @@ class converter(Ui_MainWindow, QMainWindow):
     def folder(self, fname=False):
         if not fname:
             fname = QFileDialog.getExistingDirectory(self, 'Выбрать папку')
-        for f in os.listdir(fname):
-            if f.split('.')[-1].upper() in self.extensions:
-                self.files.append(f'{fname}/{f}')
-        self.first()
-        print(self.files)
+        if fname != '':
+            for f in os.listdir(fname):
+                if f.split('.')[-1].upper() in self.extensions:
+                    self.files.append(f'{fname}/{f}')
+            self.first()
+            print(self.files)
 
 
     def dragEnterEvent(self, event):
@@ -346,6 +372,6 @@ class Second_Window(QMainWindow):
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
-    ex = converter()
+    ex = Converter()
     ex.show()
     sys.exit(app.exec())
