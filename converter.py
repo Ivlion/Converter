@@ -1,7 +1,6 @@
-from PIL.features import version
 from PyQt6 import QtCore, QtGui, QtWidgets
 from PyQt6.QtWidgets import QApplication, QMainWindow, QFileDialog, QLabel, QVBoxLayout, QWidget, QLineEdit, \
-    QPushButton, QStatusBar
+    QPushButton
 from PyQt6.QtGui import QPixmap
 import sys
 from PIL import Image
