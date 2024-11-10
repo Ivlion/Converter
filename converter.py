@@ -1,3 +1,4 @@
+from Demos.mmapfile_demo import fname
 from PyQt6 import QtCore, QtGui, QtWidgets
 from PyQt6.QtWidgets import QApplication, QMainWindow, QFileDialog, QLabel, QVBoxLayout, QWidget, QLineEdit, \
     QPushButton
@@ -133,6 +134,9 @@ class Converter(Ui_MainWindow, QMainWindow):
             print(self.st_inf)
 
     def closeEvent(self, e):
+        self.save()
+
+    def save(self):
         print(self.st_inf)
         with open('start.csv', 'w', newline='', encoding="utf8") as f:
             writer = csv.DictWriter(
@@ -206,6 +210,7 @@ class Converter(Ui_MainWindow, QMainWindow):
         self.add_folder.show()
         self.another_file.hide()
         self.scroll_area.hide()
+        self.conv.setEnabled(False)
 
     def preview(self):
         if len(self.files) == 1:
@@ -258,8 +263,11 @@ class Converter(Ui_MainWindow, QMainWindow):
 
     def dir(self, data):
         self.final_dir = data
+        self.st_inf['last_save'] = data
+        self.save()
         print(data)
         self.conv_im()
+        self.reset()
 
     def one_page(self, im):
         form = self.format.currentText().lower()
@@ -334,9 +342,17 @@ class Second_Window(QMainWindow):
         self.resize(325, 80)
         self.setFixedSize(325, 80)
         self.setWindowTitle('Сохранить в')
+
+        self.st_inf = {}
+        self.start()
+
+        self.ok = QPushButton('OK', self)
+
         self.path = QLineEdit(self)
         self.path.move(5, 10)
         self.path.resize(315, 20)
+        self.path.setText(self.st_inf['last_save'])
+        self.path_changed()
 
         self.choose = QPushButton('Выбрать', self)
         self.choose.move(175, 35)
@@ -344,14 +360,24 @@ class Second_Window(QMainWindow):
         self.choose.clicked.connect(self.folder)
 
         self.fname = None
-        self.ok = QPushButton('OK', self)
         self.ok.move(250, 35)
         self.ok.resize(70, 20)
         self.ok.clicked.connect(self.send)
 
         self.path.textChanged.connect(self.path_changed)
 
+    def start(self):
+        with open('start.csv', encoding="utf8") as csvfile:
+            reader = list(csv.reader(csvfile, delimiter=',', quotechar='"'))
+            for i in range(len(reader[0])):
+                self.st_inf[reader[0][i]] = reader[1][i]
+            if self.st_inf['last_save'] == '0':
+                self.st_inf['last_save'] = '/'.join(os.getcwd().split('\\'))
+            print(self.st_inf)
+
     def send(self):
+        if not self.fname:
+            self.fname = self.st_inf['last_save']
         self.send_data.emit(self.fname)
         self.close()
 
@@ -364,9 +390,11 @@ class Second_Window(QMainWindow):
         if os.path.exists(self.fname):
             self.statusBar().setStyleSheet('color:green')
             self.statusBar().showMessage('Указанный путь существует')
+            self.ok.setEnabled(True)
         else:
             self.statusBar().setStyleSheet('color:red')
             self.statusBar().showMessage('Указанный путь не существует')
+            self.ok.setEnabled(False)
 
 
 if __name__ == '__main__':
