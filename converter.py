@@ -1,11 +1,13 @@
 from PyQt6 import QtCore, QtGui, QtWidgets
 from PyQt6.QtWidgets import QApplication, QMainWindow, QFileDialog, QLabel, QVBoxLayout, QWidget, QLineEdit, \
-    QPushButton
+    QPushButton, QTableWidget, QTableWidgetItem, QTextEdit
 from PyQt6.QtGui import QPixmap
 import sys
 from PIL import Image
 import os
 import csv
+import sqlite3
+import datetime
 
 
 if hasattr(QtCore.Qt, 'AA_EnableHighDpiScaling'):
@@ -76,8 +78,13 @@ class Ui_MainWindow(object):
         self.scroll_area.hide()
 
         self.conv = QtWidgets.QPushButton(parent=self.centralwidget)
-        self.conv.setGeometry(QtCore.QRect(210, 260, 101, 31))
+        self.conv.setGeometry(QtCore.QRect(210, 260, 100, 30))
         self.conv.setObjectName("conv")
+
+        self.history = QtWidgets.QPushButton(parent=self.centralwidget)
+        self.history.setGeometry(QtCore.QRect(210, 210, 100, 30))
+        self.history.setObjectName("history")
+
         MainWindow.setCentralWidget(self.centralwidget)
         self.menubar = QtWidgets.QMenuBar(parent=MainWindow)
         self.menubar.setGeometry(QtCore.QRect(0, 0, 325, 18))
@@ -99,6 +106,7 @@ class Ui_MainWindow(object):
         self.add_folder.setText(_translate("MainWindow", "+Папка"))
         self.another_file.setText(_translate("MainWindow", "Выбрать другой файл"))
         self.conv.setText(_translate("MainWindow", "Конвертировать"))
+        self.history.setText(_translate("MainWindow", "История"))
 
 
 
@@ -124,6 +132,11 @@ class Converter(Ui_MainWindow, QMainWindow):
         self.conv.setEnabled(False)
         self.conv.clicked.connect(self.convert)
         self.final_dir = None
+        self.history.clicked.connect(self.show_table)
+
+    def show_table(self):
+        self.openh = Table()
+        self.openh.show()
 
     def start(self):
         with open('start.csv', encoding="utf8") as csvfile:
@@ -255,10 +268,28 @@ class Converter(Ui_MainWindow, QMainWindow):
 
     def conv_im(self):
         for el in self.files:
-            if el.split('.')[-1].lower() not in ["gif", "pdf", "tiff", "tif"]:
-                self.one_page(el)
+            if el.split('.')[-1].lower() not in ["gif", "tiff", "tif"]:
+                try:
+                    lst = self.one_page(el)
+                    print(el, lst)
+                    self.write_history(el, '\n'.join(lst), 'OK')
+                except Exception as e:
+                    self.write_history(el, 'None', str(type(e).__name__ ) + ':'+ str(e))
             else:
-                self.multy_page(el)
+                try:
+                    lst = self.multy_page(el)
+                    self.write_history(el, '\n'.join(lst), 'OK')
+                except Exception as e:
+                    self.write_history(el, 'None', str(type(e).__name__ ) + ':'+ str(e))
+
+    def write_history(self, of, ff, log):
+        print("OK")
+        con = sqlite3.connect("history.sqlite")
+        cur = con.cursor()
+        cur.execute(f"""INSERT INTO history(date_time, original_file, final_file, log) 
+                        VALUES (?, ?, ?, ?)
+                    """, (str(datetime.datetime.now()), of, ff, log))
+        con.commit()
 
     def dir(self, data):
         self.final_dir = data
@@ -271,61 +302,63 @@ class Converter(Ui_MainWindow, QMainWindow):
     def one_page(self, im):
         form = self.format.currentText().lower()
         print(form)
-        try:
-            image = Image.open(im)
-            i = 0
-            image.convert("RGB")
-            image.seek(i)
-            image.save(f"{self.new_name(im)}.{form}", format=form)
-            while True:
-                i += 1
-                try:
-                    image.seek(i)
-                    image.save(f"{self.new_name(im)}({i + 1}).{form}", format=form)
-                except EOFError:
-                    break
-            image.close()
-        except Exception:
-            pass
+        lst = []
+        image = Image.open(im)
+        i = 0
+        image.convert("RGB")
+        image.seek(i)
+        image.save(f"{self.new_name(im)}.{form}", format=form)
+        lst.append(f"{self.new_name(im)}.{form}")
+        while True:
+            i += 1
+            try:
+                image.seek(i)
+                image.save(f"{self.new_name(im)}({i + 1}).{form}", format=form)
+                lst.append(f"{self.new_name(im)}({i + 1}).{form}")
+            except EOFError:
+                break
+        image.close()
+        return lst
 
     def multy_page(self, im):
-        try:
-            form = self.format.currentText().lower()
-            img = Image.open(im)
-            s = []
-            name = ""
-            for el in im.split("/")[:-1]:
-                name += el + "/"
-            i = 0
-            a = []
-            img.seek(i)
-            img.save(f"{name}asd.png", "png")
-            s.append(Image.open(f"{name}asd.png"))
-            a.append(f"{name}asd.png")
-            while True:
-                i += 1
-                try:
-                    img.seek(i)
-                    img.save(f"{name}asd{i}.png", "png")
-                    s.append(Image.open(f"{name}asd{i}.png"))
-                    a.append(f"{name}asd{i}.png")
-                except EOFError:
-                    break
-                except Exception:
-                    for el in a:
-                        os.unlink(el)
-                    return
-            s[0].save(
-                f"{self.new_name(im)}.{form}",
-                form,
-                save_all=True,
-                append_images=s[1:],
-            )
-            img.close()
-            for el in a:
-                os.unlink(el)
-        except Exception:
-            pass
+        lst = []
+        form = self.format.currentText().lower()
+        img = Image.open(im)
+        s = []
+        name = ""
+        for el in im.split("/")[:-1]:
+            name += el + "/"
+        i = 0
+        a = []
+        img.seek(i)
+        img.save(f"{name}asd.png", "png")
+        s.append(Image.open(f"{name}asd.png"))
+        a.append(f"{name}asd.png")
+        lst.append(f"{name}asd.png")
+        while True:
+            i += 1
+            try:
+                img.seek(i)
+                img.save(f"{name}asd{i}.png", "png")
+                s.append(Image.open(f"{name}asd{i}.png"))
+                a.append(f"{name}asd{i}.png")
+                lst.append(f"{name}asd{i}.png")
+            except EOFError:
+                break
+            except Exception as e:
+                for el in a:
+                    os.unlink(el)
+                return e
+        s[0].save(
+            f"{self.new_name(im)}.{form}",
+            form,
+            save_all=True,
+            append_images=s[1:],
+        )
+        img.close()
+        for el in a:
+            os.unlink(el)
+        return lst
 
     def new_name(self, im):
         return self.final_dir + im[im.rfind('/'): im.rfind('.')] + '_converted'
@@ -395,9 +428,68 @@ class Second_Window(QMainWindow):
             self.statusBar().showMessage('Указанный путь не существует')
             self.ok.setEnabled(False)
 
+class Table(QMainWindow):
+    def __init__(self):
+        super().__init__()
+        self.initUI()
+
+    def initUI(self):
+        self.resize(500, 400)
+        self.setFixedSize(500, 415)
+        self.setWindowTitle('История')
+
+        self.con = sqlite3.connect("history.sqlite")
+        self.selected_item = QLineEdit(self)
+        self.selected_item.move(5, 370)
+        self.selected_item.resize(400, 25)
+
+        self.table = QTableWidget(self)
+        self.table.resize(490, 360)
+        self.table.move(5, 5)
+        self.table.verticalHeader().setVisible(False)
+        self.table.setSortingEnabled(True)
+        self.table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        self.table.cellClicked.connect(self.show_item)
+
+        self.clear = QPushButton('Очистить', self)
+        self.clear.move(410, 368)
+        self.clear.resize(80, 30)
+        self.clear.clicked.connect(self.clear_table)
+
+        self.update_result()
+
+    def clear_table(self):
+        cur = self.con.cursor()
+        cur.execute("DELETE FROM history")
+        self.con.commit()
+        self.table.clear()
+        self.update_result()
+
+    def show_item(self, row, column):
+        self.selected_item.setText(self.table.item(row, column).text())
+
+    def update_result(self):
+        cur = self.con.cursor()
+        result = cur.execute("SELECT * FROM history").fetchall()
+        self.table.setColumnCount(5)
+        titles = [description[0] for description in cur.description]
+        self.table.setHorizontalHeaderLabels(titles)
+        if not result:
+            self.statusBar().showMessage('Вы ничего не конвертировали')
+            return
+        self.table.setRowCount(len(result))
+        for i, elem in enumerate(result):
+            for j, val in enumerate(elem):
+                self.table.setItem(i, j, QTableWidgetItem(str(val)))
+
+
+def except_hook(cls, exception, traceback):
+    sys.__excepthook__(cls, exception, traceback)
+
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
     ex = Converter()
     ex.show()
+    sys.excepthook = except_hook
     sys.exit(app.exec())
