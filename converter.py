@@ -120,9 +120,9 @@ class Converter(Ui_MainWindow, QMainWindow):
         self.files = []
         self.extensions = [
             "BMP", "ESP", "GIF", "IM",
-            "JPEG", "JPG", "MSP", "PCX",
+            "JPEG", "MSP", "PCX",
             "PNG", "PPM", "TIFF", "WEBP",
-            "ICO", "PSD", "TIF", "FAX", "PDF"]
+            "ICO", "PSD", "FAX", "PDF"]
         self.addformat()
         self.format.currentIndexChanged.connect(self.chng_format)
         self.code.addItem('utf-8')
@@ -275,6 +275,7 @@ class Converter(Ui_MainWindow, QMainWindow):
                     self.write_history(el, '\n'.join(lst), 'OK')
                 except Exception as e:
                     self.write_history(el, 'None', str(type(e).__name__ ) + ':'+ str(e))
+                    raise e
             else:
                 try:
                     lst = self.multy_page(el)
@@ -446,7 +447,6 @@ class Table(QMainWindow):
         self.table = QTableWidget(self)
         self.table.resize(490, 360)
         self.table.move(5, 5)
-        self.table.verticalHeader().setVisible(False)
         self.table.setSortingEnabled(True)
         self.table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self.table.cellClicked.connect(self.show_item)
@@ -471,15 +471,16 @@ class Table(QMainWindow):
     def update_result(self):
         cur = self.con.cursor()
         result = cur.execute("SELECT * FROM history").fetchall()
-        self.table.setColumnCount(5)
-        titles = [description[0] for description in cur.description]
+        self.table.setColumnCount(4)
+        titles = [description[0] for description in cur.description][1:]
         self.table.setHorizontalHeaderLabels(titles)
         if not result:
             self.statusBar().showMessage('Вы ничего не конвертировали')
             return
         self.table.setRowCount(len(result))
+        print(result)
         for i, elem in enumerate(result):
-            for j, val in enumerate(elem):
+            for j, val in enumerate(elem[1:]):
                 self.table.setItem(i, j, QTableWidgetItem(str(val)))
 
 
