@@ -1,6 +1,7 @@
 from PyQt6 import QtCore, QtGui, QtWidgets
+from PyQt6.QtPrintSupport import QPrintDialog
 from PyQt6.QtWidgets import QApplication, QMainWindow, QFileDialog, QLabel, QVBoxLayout, QWidget, QLineEdit, \
-    QPushButton, QTableWidget, QTableWidgetItem
+    QPushButton, QTableWidget, QTableWidgetItem, QDialog, QMessageBox
 from PyQt6.QtGui import QPixmap
 import sys
 from PIL import Image
@@ -267,6 +268,7 @@ class Converter(Ui_MainWindow, QMainWindow):
         self.open.show()
 
     def conv_im(self):
+        flag = True
         for el in self.files:
             if el.split('.')[-1].lower() not in ["gif", "tiff", "tif"]:
                 try:
@@ -275,6 +277,7 @@ class Converter(Ui_MainWindow, QMainWindow):
                     self.write_history(el, '\n'.join(lst), 'OK')
                 except Exception as e:
                     self.write_history(el, 'None', str(type(e).__name__ ) + ':'+ str(e))
+                    flag = False
                     raise e
             else:
                 try:
@@ -282,6 +285,22 @@ class Converter(Ui_MainWindow, QMainWindow):
                     self.write_history(el, '\n'.join(lst), 'OK')
                 except Exception as e:
                     self.write_history(el, 'None', str(type(e).__name__ ) + ':'+ str(e))
+                    flag = False
+            self.complete(flag)
+
+    def complete(self, flag):
+        if flag:
+            dlg = QMessageBox(self)
+            dlg.setWindowTitle("Готово")
+            dlg.setText("Конвертация прошла успешно!")
+            dlg.setStandardButtons(QMessageBox.StandardButton.Ok)
+            dlg.show()
+        else:
+            dlg = QMessageBox(self)
+            dlg.setWindowTitle("Готово")
+            dlg.setText("Произошла ошибка!")
+            dlg.setStandardButtons(QMessageBox.StandardButton.Ok)
+            dlg.show()
 
     def write_history(self, of, ff, log):
         print("OK")
