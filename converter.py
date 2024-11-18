@@ -10,6 +10,7 @@ import csv
 import sqlite3
 import datetime
 
+from jinja2.optimizer import optimize
 
 if hasattr(QtCore.Qt, 'AA_EnableHighDpiScaling'):
     QtWidgets.QApplication.setAttribute(QtCore.Qt.AA_EnableHighDpiScaling, True)
@@ -40,9 +41,12 @@ class Ui_MainWindow(object):
         self.format = QtWidgets.QComboBox(parent=self.gridLayoutWidget)
         self.format.setObjectName("format")
         self.gridLayout.addWidget(self.format, 0, 1, 1, 1)
-        self.code = QtWidgets.QComboBox(parent=self.gridLayoutWidget)
-        self.code.setObjectName("code")
-        self.gridLayout.addWidget(self.code, 1, 1, 1, 1)
+
+        self.alpha = QtWidgets.QSpinBox(parent=self.gridLayoutWidget)
+        self.alpha.setObjectName("alpha")
+        self.alpha.setMaximum(100)
+        self.alpha.setMinimum(0)
+        self.gridLayout.addWidget(self.alpha, 1, 1, 1, 1)
 
         self.image = QtWidgets.QLabel(parent=self.centralwidget)
         self.image.setObjectName("image")
@@ -102,7 +106,7 @@ class Ui_MainWindow(object):
         _translate = QtCore.QCoreApplication.translate
         MainWindow.setWindowTitle(_translate("MainWindow", "Конвертер"))
         self.label.setText(_translate("MainWindow", "Конвертировать в:"))
-        self.label_2.setText(_translate("MainWindow", "Кодировка:"))
+        self.label_2.setText(_translate("MainWindow", "Прозрачность:"))
         self.addfile.setText(_translate("MainWindow", "+Файл"))
         self.add_folder.setText(_translate("MainWindow", "+Папка"))
         self.another_file.setText(_translate("MainWindow", "Выбрать другой файл"))
@@ -120,13 +124,14 @@ class Converter(Ui_MainWindow, QMainWindow):
         self.setAcceptDrops(True)
         self.files = []
         self.extensions = [
-            "BMP", "ESP", "GIF", "IM",
-            "JPEG", "MSP", "PCX",
-            "PNG", "PPM", "TIFF", "WEBP",
+            "BMP", "EPS", "GIF", "IM",
+            "JPEG", "PCX", "PNG", "MSP",
+            "PPM", "TIFF", "WEBP",
             "ICO", "PSD", "FAX", "PDF"]
         self.addformat()
         self.format.currentIndexChanged.connect(self.chng_format)
-        self.code.addItem('utf-8')
+        self.alpha.setValue(100)
+        self.alpha.setEnabled(False)
         self.addfile.clicked.connect(self.file)
         self.another_file.clicked.connect(self.reset)
         self.add_folder.clicked.connect(self.folder)
@@ -134,6 +139,7 @@ class Converter(Ui_MainWindow, QMainWindow):
         self.conv.clicked.connect(self.convert)
         self.final_dir = None
         self.history.clicked.connect(self.show_table)
+        self.alpha.valueChanged.connect(self.change_alpha)
 
     def show_table(self):
         self.openh = Table()
@@ -164,11 +170,16 @@ class Converter(Ui_MainWindow, QMainWindow):
 
     def chng_format(self):
         self.st_inf['last_format'] = str(self.format.currentIndex())
+        if (self.format.currentText() == 'PNG' and self.image.isVisible() and
+                self.files[0].split('.')[-1].upper() == 'PNG'):
+            self.alpha.setEnabled(True)
+        else:
+            self.alpha.setEnabled(False)
 
     def file(self):
         fname = QFileDialog.getOpenFileName(
             self, 'Выбрать файл', '',
-            'Изображения (*.jpg;*.png;*.bmp;*.esp;*.gifim;*.jpeg;*.msp;*.pcx;'
+            'Изображения (*.jpg;*.png;*.bmp;*.eps;*.gifim;*.jpeg;*.msp;*.pcx;'
             '*.ppm;*.tiff;*.webp;*.ico;*.psd;*.tif;*.fax);;Все файлы (*)')[0]
         if fname != '':
             self.files.append(fname)
@@ -180,7 +191,7 @@ class Converter(Ui_MainWindow, QMainWindow):
             fname = QFileDialog.getExistingDirectory(self, 'Выбрать папку')
         if fname != '':
             for f in os.listdir(fname):
-                if f.split('.')[-1].upper() in self.extensions:
+                if f.split('.')[-1].upper() in self.extensions + ['JPG', 'TIF'] and f.split('.')[-1].upper() != 'PDF':
                     self.files.append(f'{fname}/{f}')
             self.first()
             print(self.files)
@@ -224,9 +235,14 @@ class Converter(Ui_MainWindow, QMainWindow):
         self.another_file.hide()
         self.scroll_area.hide()
         self.conv.setEnabled(False)
+        self.alpha.setEnabled(False)
 
     def preview(self):
         if len(self.files) == 1:
+            if self.files[0].split('.')[-1].upper() == 'PNG' and self.format.currentText() == 'PNG':
+                self.alpha.setEnabled(True)
+            else:
+                self.alpha.setEnabled(False)
             self.image.show()
             try:
                 self.pixmap = QPixmap(self.files[0])
@@ -261,6 +277,13 @@ class Converter(Ui_MainWindow, QMainWindow):
                     pass
             widget.setLayout(layout)
             self.scroll_area.setWidget(widget)
+
+    def change_alpha(self):
+        im = Image.open(self.files[0])
+        im = im.convert('RGBA')
+        im.putalpha(self.alpha.value() * 255 // 100)
+        im.save(self.files[0])
+        self.preview()
 
     def convert(self):
         self.open = Second_Window()
@@ -325,7 +348,12 @@ class Converter(Ui_MainWindow, QMainWindow):
         lst = []
         image = Image.open(im)
         i = 0
-        image.convert("RGB")
+        if form == 'msp':
+            image = image.convert('1')
+        elif form != 'png':
+            image = image.convert("RGB")
+        else:
+            image = image.convert("RGBA")
         image.seek(i)
         image.save(f"{self.new_name(im)}.{form}", format=form)
         lst.append(f"{self.new_name(im)}.{form}")
