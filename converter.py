@@ -1,7 +1,6 @@
 from PyQt6 import QtCore, QtGui, QtWidgets
-from PyQt6.QtPrintSupport import QPrintDialog
 from PyQt6.QtWidgets import QApplication, QMainWindow, QFileDialog, QLabel, QVBoxLayout, QWidget, QLineEdit, \
-    QPushButton, QTableWidget, QTableWidgetItem, QDialog, QMessageBox
+    QPushButton, QTableWidget, QTableWidgetItem, QMessageBox
 from PyQt6.QtGui import QPixmap
 import sys
 from PIL import Image
@@ -9,8 +8,6 @@ import os
 import csv
 import sqlite3
 import datetime
-
-from jinja2.optimizer import optimize
 
 if hasattr(QtCore.Qt, 'AA_EnableHighDpiScaling'):
     QtWidgets.QApplication.setAttribute(QtCore.Qt.AA_EnableHighDpiScaling, True)
