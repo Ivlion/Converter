@@ -401,12 +401,7 @@ class Converter(Ui_MainWindow, QMainWindow):
                 s[i] = s[i].convert("RGB")
             else:
                 s[i] = s[i].convert("RGBA")
-        s[0].save(
-            f"{self.new_name(im)}.{form}",
-            form,
-            save_all=True,
-            append_images=s[1:],
-        )
+            s[i].save(f"{self.new_name(im) + str(i)}.{form}", form)
         img.close()
         for el in a:
             os.unlink(el)
