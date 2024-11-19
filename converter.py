@@ -176,7 +176,7 @@ class Converter(Ui_MainWindow, QMainWindow):
     def file(self):
         fname = QFileDialog.getOpenFileName(
             self, 'Выбрать файл', '',
-            'Изображения (*.jpg;*.png;*.bmp;*.eps;*.gifim;*.jpeg;*.msp;*.pcx;'
+            'Изображения (*.jpg;*.png;*.bmp;*.eps;*.gif;*.im;*.jpeg;*.msp;*.pcx;'
             '*.ppm;*.tiff;*.webp;*.ico;*.psd;*.tif;*.fax);;Все файлы (*)')[0]
         if fname != '':
             self.files.append(fname)
@@ -298,7 +298,6 @@ class Converter(Ui_MainWindow, QMainWindow):
                 except Exception as e:
                     self.write_history(el, 'None', str(type(e).__name__ ) + ':'+ str(e))
                     flag = False
-                    raise e
             else:
                 try:
                     lst = self.multy_page(el)
@@ -394,6 +393,14 @@ class Converter(Ui_MainWindow, QMainWindow):
                 for el in a:
                     os.unlink(el)
                 return e
+        print(self.new_name(im))
+        for i in range(len(s)):
+            if form == 'msp':
+                s[i] = s[i].convert('1')
+            elif form != 'png':
+                s[i] = s[i].convert("RGB")
+            else:
+                s[i] = s[i].convert("RGBA")
         s[0].save(
             f"{self.new_name(im)}.{form}",
             form,
